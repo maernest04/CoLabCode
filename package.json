@@ -1,0 +1,88 @@
+{
+  "name": "collab-code",
+  "displayName": "Collab Code",
+  "description": "Google Docs–style real-time collaboration on a single code file. See who's here and where they are.",
+  "version": "0.1.0",
+  "publisher": "collab-code",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:collabCode.startCollaboration",
+    "onCommand:collabCode.joinCollaboration",
+    "onCommand:collabCode.leaveCollaboration",
+    "onCommand:collabCode.copyShareLink"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "collabCode.startCollaboration",
+        "title": "Collab Code: Start collaboration"
+      },
+      {
+        "command": "collabCode.joinCollaboration",
+        "title": "Collab Code: Join with code"
+      },
+      {
+        "command": "collabCode.leaveCollaboration",
+        "title": "Collab Code: Leave collaboration"
+      },
+      {
+        "command": "collabCode.copyShareLink",
+        "title": "Collab Code: Copy share link"
+      }
+    ],
+    "configuration": {
+      "title": "Collab Code",
+      "properties": {
+        "collabCode.liveblocksPublicKey": {
+          "type": "string",
+          "default": "",
+          "description": "Liveblocks public API key (from dashboard.liveblocks.io)"
+        },
+        "collabCode.displayName": {
+          "type": "string",
+          "default": "",
+          "description": "Display name shown to other collaborators"
+        },
+        "collabCode.cursorColor": {
+          "type": "string",
+          "default": "",
+          "description": "Hex color for your cursor in others' editors (e.g. #FF5733). Leave empty for auto."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node build.mjs",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "npx @vscode/vsce package"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "esbuild": "^0.24.2",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@liveblocks/client": "^3.0.0",
+    "@liveblocks/yjs": "^3.0.0",
+    "ws": "^8.18.0",
+    "yjs": "^13.6.0"
+  }
+}

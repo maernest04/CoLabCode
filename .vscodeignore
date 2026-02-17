@@ -1,0 +1,15 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+**/tsconfig.json
+**/.eslintrc.json
+**/*.map
+node_modules/**
+**/build.mjs
+out/binding.js
+out/commands.js
+out/liveblocks.js
+out/presence.js
+out/state.js
+Test.txt
