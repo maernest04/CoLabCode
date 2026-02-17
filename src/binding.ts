@@ -18,8 +18,8 @@ function docKey(uri: vscode.Uri): string {
 
 /**
  * Two-way binding: TextDocument <-> Y.Text.
- * Local edits (onDidChangeTextDocument) are applied to Y with LOCAL_ORIGIN.
- * Remote Y updates (ydoc.on('update')) are applied to the document via WorkspaceEdit.
+ * - Doc → Y: one atomic Yjs transaction per change (delete all + insert all with LOCAL_ORIGIN).
+ * - Y → Doc: serialized full-document replace; we ignore LOCAL_ORIGIN so we don't echo our own edits.
  */
 export function bindDocumentToYText(
   document: vscode.TextDocument,
@@ -33,15 +33,17 @@ export function bindDocumentToYText(
     activeBindings.get(key)!.dispose();
   }
 
+  /** When true, doc-change handler must not push to Y (we are applying remote state). */
   let applyingRemote = false;
+  /** Serialize Y→doc applies so we never run two replace edits with stale ranges (avoids doubled content). */
+  let remoteApplyPromise: Promise<void> = Promise.resolve();
 
   const docChangeSub = vscode.workspace.onDidChangeTextDocument((e) => {
     if (e.document.uri.toString() !== uri.toString()) return;
     if (applyingRemote) return;
 
-    // Sync full document to Y so that Undo/Redo and multi-range edits (which have
-    // contentChanges relative to different document states) always sync correctly.
     const newText = e.document.getText();
+    // Single atomic Yjs transaction: replace entire Y.Text with document snapshot.
     ydoc.transact(() => {
       const current = yText.toString();
       if (current === newText) return;
@@ -52,24 +54,31 @@ export function bindDocumentToYText(
     }, LOCAL_ORIGIN);
   });
 
-  const updateHandler = (update: Uint8Array, origin: unknown) => {
+  const updateHandler = (_update: Uint8Array, origin: unknown) => {
     if (origin === LOCAL_ORIGIN) return;
 
-    const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
-    if (!doc) return;
-
     applyingRemote = true;
-    const newText = yText.toString();
-    const fullRange = new vscode.Range(
-      doc.positionAt(0),
-      doc.positionAt(doc.getText().length)
-    );
-    const edit = new vscode.WorkspaceEdit();
-    edit.replace(uri, fullRange, newText);
-    vscode.workspace.applyEdit(edit).then(
-      () => { applyingRemote = false; },
-      () => { applyingRemote = false; }
-    );
+    remoteApplyPromise = remoteApplyPromise
+      .then(() => {
+        const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+        if (!doc) return;
+
+        const newText = yText.toString();
+        const currentText = doc.getText();
+        if (currentText === newText) return;
+
+        const fullRange = new vscode.Range(
+          doc.positionAt(0),
+          doc.positionAt(currentText.length)
+        );
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(uri, fullRange, newText);
+        return vscode.workspace.applyEdit(edit);
+      })
+      .then(
+        () => { applyingRemote = false; },
+        () => { applyingRemote = false; }
+      );
   };
 
   ydoc.on("update", updateHandler);
@@ -86,7 +95,8 @@ export function bindDocumentToYText(
 }
 
 /**
- * Initialize Y.Text with the document content if Y.Text is empty (e.g. first one in room).
+ * Initialize Y.Text with the document content if Y.Text is empty (e.g. host starting room).
+ * Single atomic transaction with LOCAL_ORIGIN so the update handler does not echo it back.
  */
 export function initializeYTextFromDocument(document: vscode.TextDocument, yText: Y.Text, ydoc: Y.Doc): void {
   const current = yText.toString();
@@ -101,7 +111,8 @@ export function initializeYTextFromDocument(document: vscode.TextDocument, yText
 }
 
 /**
- * Ensure the document content matches Y.Text (e.g. after joining a room where content already exists).
+ * One-shot apply of Y.Text to document (e.g. before binding). Use only when binding is not yet active.
+ * Single WorkspaceEdit replace so the document gets one consistent snapshot.
  */
 export function applyYTextToDocument(document: vscode.TextDocument, yText: Y.Text, uri: vscode.Uri): Thenable<boolean> {
   const newText = yText.toString();

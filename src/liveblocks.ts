@@ -5,6 +5,7 @@ import * as Y from "yjs";
 // Extension runs in Node (VS Code extension host). Liveblocks needs WebSocket.
 const WebSocketPolyfill = typeof globalThis.WebSocket !== "undefined" ? globalThis.WebSocket : require("ws");
 
+/** Origin for local edits so we can skip applying them back to the document (no echo). */
 const TRANSACTION_ORIGIN = Symbol("vscode-local");
 
 export type CollabPresence = {
